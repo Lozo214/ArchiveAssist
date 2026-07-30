@@ -1,0 +1,940 @@
+<Window x:Class="ArchiveAssist.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:core="clr-namespace:ArchiveAssist.Core.Models;assembly=ArchiveAssist.Core"
+        Title="Archive Assist" Height="780" Width="1240" MinHeight="650" MinWidth="900"
+        Background="#F4F6F8" WindowStartupLocation="CenterScreen"
+        UseLayoutRounding="True">
+    <Window.InputBindings>
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding SelectPathsCommand}" />
+        <KeyBinding Key="F5" Command="{Binding ScanCommand}" />
+    </Window.InputBindings>
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="18,9" />
+            <Setter Property="MinWidth" Value="110" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="AutomationProperties.HelpText"
+                    Value="{Binding RelativeSource={RelativeSource Self}, Path=ToolTip}" />
+        </Style>
+        <Style x:Key="CompactButton" TargetType="Button">
+            <Setter Property="Padding" Value="11,6" />
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Padding" Value="20,10" />
+            <Setter Property="MinWidth" Value="128" />
+            <Setter Property="Background" Value="#1769AA" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="SummaryCard" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#DDE2E7" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+        <Style x:Key="WarningReportRow" TargetType="DataGridRow">
+            <Setter Property="Background" Value="White" />
+            <Style.Triggers>
+                <Trigger Property="AlternationIndex" Value="1">
+                    <Setter Property="Background" Value="#F7F9FA" />
+                </Trigger>
+                <DataTrigger Binding="{Binding HasWarning}" Value="True">
+                    <Setter Property="Background" Value="#FFF4CE" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSuccessful}" Value="False">
+                    <Setter Property="Background" Value="#FDE7E9" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <HierarchicalDataTemplate DataType="{x:Type core:FileStructureNode}" ItemsSource="{Binding Children}">
+            <Border Padding="4,3" CornerRadius="2">
+                <Border.RenderTransform>
+                    <TranslateTransform X="{Binding HierarchyCompensation}" />
+                </Border.RenderTransform>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasWarning}" Value="True">
+                                <Setter Property="Background" Value="#FFF4CE" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ReportRow.IsSuccessful}" Value="False">
+                                <Setter Property="Background" Value="#FDE7E9" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid Width="760"
+                      ClipToBounds="False"
+                      ToolTip="{Binding FullPath}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="290" />
+                        <ColumnDefinition Width="75" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="55" />
+                        <ColumnDefinition Width="55" />
+                        <ColumnDefinition Width="205" />
+                    </Grid.ColumnDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="{Binding HierarchyIndent}" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Name}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                    <Border Grid.Column="1"
+                            Padding="8,0,4,0"
+                            BorderBrush="#D8DEE4"
+                            BorderThickness="1,0,0,0">
+                        <TextBlock Text="{Binding TypeLabel}" Foreground="#5D6873" />
+                    </Border>
+                    <Border Grid.Column="2"
+                            Padding="4,0,14,0"
+                            BorderBrush="#D8DEE4"
+                            BorderThickness="1,0,0,0">
+                        <TextBlock Text="{Binding Documents, StringFormat=N0}" TextAlignment="Right" />
+                    </Border>
+                    <Border Grid.Column="3"
+                            Padding="4,0,14,0"
+                            BorderBrush="#D8DEE4"
+                            BorderThickness="1,0,0,0">
+                        <TextBlock Text="{Binding Maps, StringFormat=N0}" TextAlignment="Right" />
+                    </Border>
+                    <Border Grid.Column="4"
+                            Padding="4,0,14,0"
+                            BorderBrush="#D8DEE4"
+                            BorderThickness="1,0,0,0">
+                        <TextBlock Text="{Binding Photos, StringFormat=N0}" TextAlignment="Right" />
+                    </Border>
+                    <Border Grid.Column="5"
+                            Padding="8,0,4,0"
+                            BorderBrush="#D8DEE4"
+                            BorderThickness="1,0,0,0">
+                        <TextBlock Text="{Binding WarningsLabel}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="#8A4B00" />
+                    </Border>
+                </Grid>
+            </Border>
+        </HierarchicalDataTemplate>
+    </Window.Resources>
+
+    <DockPanel>
+        <Menu DockPanel.Dock="Top" Background="White" BorderBrush="#D5DBE1" BorderThickness="0,0,0,1">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Select files and folders..." Command="{Binding SelectPathsCommand}" InputGestureText="Ctrl+O" />
+                <MenuItem x:Name="RecentScanLocationsMenuItem"
+                          Header="Recent scan _locations"
+                          SubmenuOpened="RecentScanLocationsMenuItem_SubmenuOpened">
+                    <MenuItem Header="(No recent locations)" IsEnabled="False" />
+                </MenuItem>
+                <MenuItem Header="Open PDF in _Editor..." Click="OpenPdfEditorMenuItem_Click" />
+                <MenuItem x:Name="RecentPdfsMenuItem"
+                          Header="Open _Recent PDF"
+                          SubmenuOpened="RecentPdfsMenuItem_SubmenuOpened">
+                    <MenuItem Header="(No recent PDFs)" IsEnabled="False" />
+                </MenuItem>
+                <MenuItem Header="_Recovery Center..."
+                          Click="RecoveryCenterMenuItem_Click" />
+                <Separator />
+                <MenuItem Header="_Start scan" Command="{Binding ScanCommand}" InputGestureText="F5" />
+                <MenuItem Header="_Cancel scan" Command="{Binding CancelCommand}" />
+                <Separator />
+                <MenuItem Header="E_xit" Click="ExitMenuItem_Click" />
+            </MenuItem>
+            <MenuItem Header="_Options">
+                <MenuItem Header="_Preferences..." Click="PreferencesMenuItem_Click" />
+                <Separator />
+                <MenuItem Header="PDF Page _Equalizer..." Click="PageEqualizerMenuItem_Click" />
+                <MenuItem Header="_Experimental PDF Processing">
+                    <MenuItem Header="OCR and optimization are experimental"
+                              IsEnabled="False" />
+                    <Separator />
+                    <MenuItem Header="_OCR entire PDFs in place..." Click="WholeFileOcrMenuItem_Click" />
+                    <MenuItem Header="_Optimize PDFs..." Click="OptimizePdfsMenuItem_Click" />
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="_Discovery Preview" InputGestureText="Ctrl+1" Click="ShowDiscoveryPreview_Click" />
+                <MenuItem Header="_Report" InputGestureText="Ctrl+2" Click="ShowReport_Click" />
+                <MenuItem Header="_File Structure" InputGestureText="Ctrl+3" Click="ShowFileStructure_Click" />
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_Getting Started" Click="ShowGettingStarted_Click" />
+                <MenuItem Header="_Keyboard Shortcuts" Click="MainKeyboardShortcuts_Click" />
+                <Separator />
+                <MenuItem Header="_About Archive Assist" Click="AboutMenuItem_Click" />
+            </MenuItem>
+        </Menu>
+
+        <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Archive Assist" FontSize="30" FontWeight="SemiBold" Foreground="#17212B" />
+            <TextBlock Margin="0,5,0,0" Foreground="#5D6873"
+                       Text="Build a production report from PDFs, photos, and photo backs without changing source files." />
+        </StackPanel>
+
+        <Border x:Name="MainWelcomePanel"
+                Grid.Row="1"
+                Margin="0,16,0,10"
+                Padding="14,11"
+                Background="#E8F1F8"
+                BorderBrush="#8CB6D3"
+                BorderThickness="1"
+                CornerRadius="6"
+                Visibility="Collapsed">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontWeight="SemiBold"
+                               Foreground="#17496A"
+                               Text="Select → Configure → Scan → Review → Act" />
+                    <TextBlock Margin="0,3,0,0"
+                               Foreground="#315B73"
+                               TextWrapping="Wrap"
+                               Text="Drop files or folders below, review the discovered-file preview, then start the scan. Source files remain unchanged." />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Style="{StaticResource CompactButton}"
+                        Margin="16,0,0,0"
+                        Content="Got it"
+                        Click="DismissGettingStarted_Click" />
+            </Grid>
+        </Border>
+
+        <Border x:Name="SelectionDropZone"
+                Grid.Row="2"
+                Margin="0,6,0,10"
+                Padding="16,13"
+                Background="White"
+                BorderBrush="#BFC8CE"
+                BorderThickness="1"
+                CornerRadius="6"
+                AllowDrop="True"
+                DragEnter="SelectionDropZone_DragEnter"
+                DragOver="SelectionDropZone_DragOver"
+                DragLeave="SelectionDropZone_DragLeave"
+                Drop="SelectionDropZone_Drop"
+                AutomationProperties.Name="Scan file and folder selection drop area">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="#17212B"
+                               Text="{Binding SelectionSummary}" />
+                    <TextBlock Margin="0,4,20,0"
+                               Foreground="#5D6873"
+                               Text="{Binding SelectionText}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding SelectionText}" />
+                    <TextBlock Margin="0,4,0,0"
+                               Foreground="#71808A"
+                               Text="Drag files and folders here to replace the current selection." />
+                </StackPanel>
+                <Menu Grid.Column="1"
+                      Margin="8,0,0,0"
+                      VerticalAlignment="Center"
+                      Background="Transparent">
+                    <MenuItem x:Name="RecentScanLocationsButtonMenu"
+                              Padding="14,8"
+                              Header="Recent locations"
+                              SubmenuOpened="RecentScanLocationsMenuItem_SubmenuOpened" />
+                </Menu>
+                <Button Grid.Column="2"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Command="{Binding SelectPathsCommand}"
+                        Content="_Select files/folders..." />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="3" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Expander x:Name="AdvancedSettingsExpander"
+                      Header="Advanced scan settings"
+                      Expanded="AdvancedSettingsExpander_Changed"
+                      Collapsed="AdvancedSettingsExpander_Changed">
+                <Grid Margin="0,9,20,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="65" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="170" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock VerticalAlignment="Center" Text="Maps are larger than:" />
+                    <ComboBox Grid.Column="1" Margin="10,0,20,0" Padding="8,6"
+                              ItemsSource="{Binding PageSizePresets}"
+                              SelectedItem="{Binding SelectedThreshold}"
+                              ToolTip="Pages larger than this physical size count as maps." />
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Text="Max PDF pages:" />
+                    <TextBox Grid.Column="3" Margin="10,0,0,0" Padding="8,6"
+                             VerticalContentAlignment="Center"
+                             Text="{Binding MaxPagesPerPdf, UpdateSourceTrigger=LostFocus}"
+                             ToolTip="PDFs above this number are flagged in the report." />
+                    <TextBlock Grid.Column="4" Margin="18,0,0,0" VerticalAlignment="Center" Text="QA mode:" />
+                    <ComboBox Grid.Column="5" Margin="10,0,0,0" Padding="8,6"
+                              ItemsSource="{Binding QaModes}"
+                              SelectedItem="{Binding SelectedQaMode}"
+                              ToolTip="{Binding QaModeDescription}" />
+                </Grid>
+            </Expander>
+            <Button Grid.Column="1"
+                    Style="{StaticResource PrimaryButton}"
+                    Margin="10,0,0,0"
+                    Command="{Binding ScanCommand}"
+                    Content="Start scan"
+                    ToolTip="Build the production report (F5)" />
+            <Button Grid.Column="2"
+                    Margin="10,0,0,0"
+                    Command="{Binding CancelCommand}"
+                    Content="Cancel scan"
+                    ToolTip="Cancel after the current file">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource CompactButton}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsScanning}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+        </Grid>
+
+        <Border Grid.Row="4"
+                Margin="0,0,0,10"
+                Padding="12,9"
+                Background="White"
+                BorderBrush="#D5DBE1"
+                BorderThickness="1"
+                CornerRadius="5">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock FontWeight="SemiBold"
+                                   Foreground="#17212B"
+                                   Text="{Binding ScanPhaseText}" />
+                        <TextBlock Margin="0,3,20,0"
+                                   Foreground="#5D6873"
+                                   Text="{Binding CurrentFileName}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1"
+                               VerticalAlignment="Center"
+                               Foreground="#5D6873"
+                               Text="{Binding ProgressDetailsText}" />
+                </Grid>
+                <ProgressBar Grid.Row="1"
+                             Margin="0,8,0,0"
+                             Height="7"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="{Binding ProgressPercent, Mode=OneWay}"
+                             IsIndeterminate="{Binding IsProgressIndeterminate}"
+                             AutomationProperties.Name="Scan progress" />
+            </Grid>
+        </Border>
+
+        <Border x:Name="CompletionBanner"
+                Grid.Row="5"
+                Margin="0,0,0,10"
+                Padding="14,11"
+                Background="#EAF5EC"
+                BorderBrush="#8FC49A"
+                BorderThickness="1"
+                CornerRadius="6">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsCompletionVisible}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontWeight="SemiBold"
+                               Foreground="#216333"
+                               Text="{Binding CompletionTitle}" />
+                    <TextBlock Margin="0,3,0,0"
+                               Foreground="#3E6848"
+                               Text="{Binding CompletionDetails}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Margin="16,0,0,0"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Button Style="{StaticResource CompactButton}"
+                            Margin="0,0,6,0"
+                            Content="View Report"
+                            Click="CompletionViewReport_Click" />
+                    <Button Style="{StaticResource CompactButton}"
+                            Margin="0,0,6,0"
+                            Content="View Issues"
+                            Click="CompletionViewIssues_Click" />
+                    <Button Style="{StaticResource CompactButton}"
+                            Margin="0,0,6,0"
+                            Content="Open Summary"
+                            Click="CompletionOpenSummary_Click" />
+                    <Button Style="{StaticResource CompactButton}"
+                            Content="Dismiss"
+                            Click="CompletionDismiss_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="255" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Background="White" BorderBrush="#D5DBE1" BorderThickness="1" Padding="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Summary" FontSize="15" FontWeight="SemiBold" Foreground="#17212B" />
+                    <DataGrid x:Name="SummaryGrid" Grid.Row="1" Margin="0,8,0,0"
+                              ItemsSource="{Binding SummaryItems}" AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserResizeRows="False" CanUserSortColumns="False"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal" RowHeight="27"
+                              PreviewMouseRightButtonDown="SummaryGrid_PreviewMouseRightButtonDown"
+                              MouseDoubleClick="SummaryGrid_MouseDoubleClick">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="ToolTip" Value="{Binding ActionHint}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsActionable}" Value="True">
+                                        <Setter Property="Cursor" Value="Hand" />
+                                        <Setter Property="Foreground" Value="#1769AA" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="View matching Report rows" Click="ViewSummaryRowsMenuItem_Click" />
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Metric" Binding="{Binding Metric}" Width="*" />
+                            <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="78" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+
+            <TabControl x:Name="ResultsTabs" Grid.Column="2" Background="White" BorderBrush="#D5DBE1">
+                <TabItem x:Name="DiscoveryPreviewTab" Header="{Binding DiscoveryTabHeader}">
+                    <Grid>
+                    <DataGrid x:Name="DiscoveryGrid"
+                              ItemsSource="{Binding DiscoveredFiles}" AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserSortColumns="True" GridLinesVisibility="Horizontal"
+                              AlternatingRowBackground="#F7F9FA" EnableRowVirtualization="True"
+                              AutomationProperties.Name="Discovered files preview">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="File name" Binding="{Binding FileName}" Width="2*" />
+                            <DataGridTextColumn Header="Type" Binding="{Binding TypeLabel}" Width="100" />
+                            <DataGridTextColumn Header="Folder" Binding="{Binding RelativeFolder}" Width="2*" />
+                            <DataGridTextColumn Header="Extension" Binding="{Binding Extension}" Width="90" />
+                            <DataGridTextColumn Header="Full path" Binding="{Binding FullPath}" Width="3*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Background="#F9FAFB" IsHitTestVisible="False">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasDiscoveredFiles}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock HorizontalAlignment="Center"
+                                       FontSize="17"
+                                       FontWeight="SemiBold"
+                                       Foreground="#495761"
+                                       Text="No files have been discovered yet." />
+                            <TextBlock Margin="0,6,0,0"
+                                       Foreground="#71808A"
+                                       Text="Select or drop files and folders above to preview the scan." />
+                        </StackPanel>
+                    </Border>
+                    </Grid>
+                </TabItem>
+                <TabItem x:Name="ReportTab" Header="{Binding ReportTabHeader}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Margin="10,8,10,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock VerticalAlignment="Center" Text="Show:" />
+                                <ComboBox Width="175" Margin="8,0,14,0" Padding="7,5"
+                                          ItemsSource="{Binding ReportFilters}"
+                                          SelectedItem="{Binding SelectedReportFilter}" />
+                                <Grid Width="260">
+                                    <TextBox x:Name="ReportSearchBox"
+                                             Padding="9,6"
+                                             Text="{Binding ReportSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             AutomationProperties.Name="Search report" />
+                                    <TextBlock Margin="10,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="#7A858F"
+                                               IsHitTestVisible="False"
+                                               Text="Search filename, folder, or issue">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ReportSearchText}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Style="{StaticResource CompactButton}"
+                                        Content="Clear filters"
+                                        Click="ClearReportFilters_Click" />
+                                <TextBlock Margin="12,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="#5D6873"
+                                           Text="{Binding VisibleReportCount, StringFormat={}{0:N0} visible}" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid Grid.Row="1" Margin="10,4,10,4">
+                            <ListBox x:Name="ReportQuickFilterList"
+                                     HorizontalAlignment="Left"
+                                     ItemsSource="{Binding QuickReportFilters}"
+                                     SelectedItem="{Binding SelectedReportFilter}"
+                                     BorderThickness="0"
+                                     Background="Transparent"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     AutomationProperties.Name="Quick report filters">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Padding" Value="10,5" />
+                                        <Setter Property="Margin" Value="0,0,6,0" />
+                                        <Setter Property="Background" Value="#F1F4F6" />
+                                        <Setter Property="BorderBrush" Value="#C8D0D5" />
+                                        <Setter Property="BorderThickness" Value="1" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#E8F1F8" />
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#1769AA" />
+                                                <Setter Property="BorderBrush" Value="#1769AA" />
+                                                <Setter Property="Foreground" Value="White" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
+                        </Grid>
+                        <WrapPanel Grid.Row="2"
+                                   Margin="10,2,10,8"
+                                   HorizontalAlignment="Right">
+                                <Button x:Name="ReportDetailsButton"
+                                        Style="{StaticResource CompactButton}"
+                                        Margin="0,0,6,0"
+                                        Content="Details"
+                                        IsEnabled="False"
+                                        Click="ReportDetailsMenuItem_Click" />
+                                <Button x:Name="ReportEditButton"
+                                        Style="{StaticResource CompactButton}"
+                                        Margin="0,0,6,0"
+                                        Content="Edit PDF"
+                                        IsEnabled="False"
+                                        Click="ReportEditPdfMenuItem_Click" />
+                                <Button x:Name="ReportOpenFolderButton"
+                                        Style="{StaticResource CompactButton}"
+                                        Margin="0,0,6,0"
+                                        Content="Open Folder"
+                                        IsEnabled="False"
+                                        Click="ReportOpenFolderMenuItem_Click" />
+                                <Button Style="{StaticResource CompactButton}"
+                                        Margin="0,0,6,0"
+                                        Content="Experimental OCR..."
+                                        Click="CreateSearchableCopiesButton_Click"
+                                        ToolTip="Experimental: OCR selected flagged PDFs into a separate output folder" />
+                                <Button x:Name="CopySelectedRowsButton"
+                                        Style="{StaticResource CompactButton}"
+                                        Margin="0,0,6,0"
+                                        Content="Copy Selected"
+                                        IsEnabled="False"
+                                        Click="CopySelectedRowsButton_Click" />
+                                <Button x:Name="CopyVisibleRowsButton"
+                                        Style="{StaticResource CompactButton}"
+                                        Content="Copy All Visible"
+                                        IsEnabled="{Binding HasVisibleReportRows}"
+                                        Click="CopyVisibleRowsButton_Click" />
+                        </WrapPanel>
+                        <Grid Grid.Row="3">
+                        <DataGrid x:Name="ReportGrid" ItemsSource="{Binding ReportView}"
+                                  AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                                  CanUserSortColumns="True" GridLinesVisibility="Horizontal" AlternationCount="2"
+                                  EnableRowVirtualization="True" RowStyle="{StaticResource WarningReportRow}"
+                                  SelectionMode="Extended" SelectionUnit="FullRow" ClipboardCopyMode="None"
+                                  PreviewKeyDown="ReportGrid_PreviewKeyDown"
+                                  SelectionChanged="ReportGrid_SelectionChanged"
+                                  PreviewMouseRightButtonDown="ReportGrid_PreviewMouseRightButtonDown"
+                                  MouseDoubleClick="ReportGrid_MouseDoubleClick"
+                                  AutomationProperties.Name="Production report">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="See details" Click="ReportDetailsMenuItem_Click" />
+                                    <MenuItem Header="Edit PDF..." Click="ReportEditPdfMenuItem_Click" />
+                                    <MenuItem Header="Open file" Click="ReportOpenFileMenuItem_Click" />
+                                    <MenuItem Header="Open containing folder" Click="ReportOpenFolderMenuItem_Click" />
+                                    <MenuItem Header="Copy filename" Click="ReportCopyNameMenuItem_Click" />
+                                    <MenuItem Header="Create searchable copies..." Click="CreateSearchableCopiesButton_Click" />
+                                    <Separator />
+                                    <MenuItem Header="Copy selected Report rows" Click="CopySelectedRowsButton_Click" />
+                                    <MenuItem Header="Copy all visible Report rows" Click="CopyVisibleRowsButton_Click" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="File Name" Binding="{Binding FileName}" Width="210" />
+                                <DataGridTextColumn Header="Documents" Binding="{Binding Documents}" Width="90" />
+                                <DataGridTextColumn Header="Maps" Binding="{Binding Maps}" Width="65" />
+                                <DataGridTextColumn Header="Photos" Binding="{Binding Photos}" Width="70" />
+                                <DataGridTextColumn Header="Photo Backs" Binding="{Binding PhotoBacks}" Width="95" />
+                                <DataGridTextColumn Header="Total" Binding="{Binding Total}" Width="65" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding TypeLabel}" Width="90" />
+                                <DataGridTextColumn Header="Folder" Binding="{Binding RelativeFolder}" Width="150" />
+                                <DataGridTextColumn Header="Pages" Binding="{Binding PageCount}" Width="65" />
+                                <DataGridTextColumn Header="Searchable" Binding="{Binding SearchableTextLabel}" Width="90" />
+                                <DataGridTextColumn Header="Non-OCR Pages" Binding="{Binding NonOcrPageNumbersLabel}" Width="115" />
+                                <DataGridTextColumn Header="OCR Check" Binding="{Binding OcrCheckStatusLabel}" Width="185" />
+                                <DataGridTextColumn Header="Largest Page" Binding="{Binding LargestPageSizeLabel}" Width="130" />
+                                <DataGridTextColumn Header="Over Limit" Binding="{Binding OverLimitLabel}" Width="80" />
+                                <DataGridTextColumn Header="Size" Binding="{Binding FileSizeLabel}" Width="85" />
+                                <DataGridTextColumn Header="Issues" Binding="{Binding IssuesLabel}" Width="260" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Border Background="#F9FAFB" IsHitTestVisible="False">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasVisibleReportRows}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock HorizontalAlignment="Center"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           Foreground="#495761"
+                                           Text="No report rows match the current view." />
+                                <TextBlock Margin="0,6,0,0"
+                                           Foreground="#71808A"
+                                           Text="Run a scan or clear the current search and filters." />
+                            </StackPanel>
+                        </Border>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+                <TabItem x:Name="FileStructureTab" Header="{Binding FileStructureTabHeader}">
+                    <Grid Margin="10,8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <DockPanel>
+                            <TextBlock Text="Project Structure" FontSize="14" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                                <Button Content="Expand all" Padding="12,5" MinWidth="90" Click="ExpandAllButton_Click" />
+                                <Button Margin="6,0,0,0" Content="Collapse all" Padding="12,5" MinWidth="90"
+                                        Click="CollapseAllButton_Click" />
+                            </StackPanel>
+                        </DockPanel>
+                        <Border Grid.Row="1" Margin="0,8,0,0" Padding="24,5,4,5" Background="#EEF1F4">
+                            <Grid Width="760">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="290" />
+                                    <ColumnDefinition Width="75" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="55" />
+                                    <ColumnDefinition Width="55" />
+                                    <ColumnDefinition Width="205" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Name" FontWeight="SemiBold" />
+                                <Border Grid.Column="1"
+                                        Padding="8,0,4,0"
+                                        BorderBrush="#C6CED4"
+                                        BorderThickness="1,0,0,0">
+                                    <TextBlock Text="Type" FontWeight="SemiBold" />
+                                </Border>
+                                <Border Grid.Column="2"
+                                        Padding="4,0,4,0"
+                                        BorderBrush="#C6CED4"
+                                        BorderThickness="1,0,0,0">
+                                    <TextBlock Text="Documents" FontWeight="SemiBold" />
+                                </Border>
+                                <Border Grid.Column="3"
+                                        Padding="4,0,4,0"
+                                        BorderBrush="#C6CED4"
+                                        BorderThickness="1,0,0,0">
+                                    <TextBlock Text="Maps" FontWeight="SemiBold" />
+                                </Border>
+                                <Border Grid.Column="4"
+                                        Padding="4,0,4,0"
+                                        BorderBrush="#C6CED4"
+                                        BorderThickness="1,0,0,0">
+                                    <TextBlock Text="Photos" FontWeight="SemiBold" />
+                                </Border>
+                                <Border Grid.Column="5"
+                                        Padding="8,0,4,0"
+                                        BorderBrush="#C6CED4"
+                                        BorderThickness="1,0,0,0">
+                                    <TextBlock Text="Warnings" FontWeight="SemiBold" />
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <TreeView x:Name="FileStructureTree" Grid.Row="2" Margin="0,2,0,0"
+                                  ItemsSource="{Binding FileStructureRoots}"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                  PreviewMouseRightButtonDown="FileStructureTree_PreviewMouseRightButtonDown"
+                                  PreviewKeyDown="FileStructureTree_PreviewKeyDown"
+                                  MouseDoubleClick="FileStructureTree_MouseDoubleClick">
+                            <TreeView.ItemContainerStyle>
+                                <Style TargetType="TreeViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                </Style>
+                            </TreeView.ItemContainerStyle>
+                            <TreeView.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="See details" Click="StructureDetailsMenuItem_Click" />
+                                    <MenuItem Header="Edit PDF..." Click="StructureEditPdfMenuItem_Click" />
+                                    <MenuItem Header="Open" Click="StructureOpenMenuItem_Click" />
+                                    <MenuItem Header="Open containing folder" Click="StructureOpenFolderMenuItem_Click" />
+                                    <MenuItem Header="Rename..." InputGestureText="F2" Click="StructureRenameMenuItem_Click" />
+                                    <MenuItem Header="Copy name" Click="StructureCopyNameMenuItem_Click" />
+                                </ContextMenu>
+                            </TreeView.ContextMenu>
+                        </TreeView>
+                        <Border Grid.Row="2"
+                                Background="#F9FAFB"
+                                IsHitTestVisible="False">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasFileStructure}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock FontSize="17"
+                                           FontWeight="SemiBold"
+                                           Foreground="#495761"
+                                           Text="No file structure is available yet." />
+                                <TextBlock Margin="0,6,0,0"
+                                           Foreground="#71808A"
+                                           Text="Complete a scan to build the folder tree." />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+        </Grid>
+
+        <Grid Grid.Row="7" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="255" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="2"
+                        HorizontalAlignment="Center">
+                <TextBlock Margin="0,0,0,5"
+                           HorizontalAlignment="Center"
+                           Foreground="#5D6873"
+                           FontSize="12">
+                    <Run Text="Counts for " />
+                    <Run FontWeight="SemiBold"
+                         Foreground="#27333C"
+                         Text="{Binding CountContextLabel, Mode=OneWay}" />
+                </TextBlock>
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center">
+                    <Border Style="{StaticResource SummaryCard}">
+                        <StackPanel MinWidth="66">
+                            <TextBlock HorizontalAlignment="Center" Foreground="#5D6873" Text="Documents" />
+                            <TextBlock HorizontalAlignment="Center" FontSize="18" FontWeight="SemiBold" Text="{Binding Documents, StringFormat=N0}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource SummaryCard}">
+                        <StackPanel MinWidth="48">
+                            <TextBlock HorizontalAlignment="Center" Foreground="#5D6873" Text="Maps" />
+                            <TextBlock HorizontalAlignment="Center" FontSize="18" FontWeight="SemiBold" Text="{Binding Maps, StringFormat=N0}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource SummaryCard}">
+                        <StackPanel MinWidth="52">
+                            <TextBlock HorizontalAlignment="Center" Foreground="#5D6873" Text="Photos" />
+                            <TextBlock HorizontalAlignment="Center" FontSize="18" FontWeight="SemiBold" Text="{Binding Photos, StringFormat=N0}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource SummaryCard}">
+                        <StackPanel MinWidth="72">
+                            <TextBlock HorizontalAlignment="Center" Foreground="#5D6873" Text="Photo Backs" />
+                            <TextBlock HorizontalAlignment="Center" FontSize="18" FontWeight="SemiBold" Text="{Binding PhotoBacks, StringFormat=N0}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource SummaryCard}">
+                        <StackPanel MinWidth="88">
+                            <TextBlock HorizontalAlignment="Center" Foreground="#5D6873" Text="Production Total" />
+                            <TextBlock HorizontalAlignment="Center" FontSize="18" FontWeight="SemiBold" Text="{Binding ProductionTotal, StringFormat=N0}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource SummaryCard}" Margin="0">
+                        <StackPanel MinWidth="62">
+                            <TextBlock HorizontalAlignment="Center" Foreground="#5D6873" Text="Warnings" />
+                            <TextBlock HorizontalAlignment="Center" FontSize="18" FontWeight="SemiBold" Text="{Binding WarningCount, StringFormat=N0}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="8" Margin="0,11,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Foreground="#5D6873" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <TextBlock Foreground="#5D6873" Text="{Binding CompletedFiles, StringFormat={}{0:N0}}" />
+                <TextBlock Foreground="#5D6873" Text=" / " />
+                <TextBlock Foreground="#5D6873" Text="{Binding TotalFiles, StringFormat={}{0:N0} files}" />
+                <TextBlock Margin="18,0,0,0" Foreground="#5D6873" Text="{Binding TotalFileSizeLabel}" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Margin="0,4,0,0" Orientation="Horizontal">
+                <TextBlock Foreground="#7A858F" Text="PDFs: " /><TextBlock Foreground="#7A858F" Text="{Binding PdfCount, StringFormat=N0}" />
+                <TextBlock Margin="16,0,0,0" Foreground="#7A858F" Text="Pages: " /><TextBlock Foreground="#7A858F" Text="{Binding TotalPages, StringFormat=N0}" />
+                <TextBlock Margin="16,0,0,0" Foreground="#7A858F" Text="Skipped: " /><TextBlock Foreground="#7A858F" Text="{Binding SkippedFiles, StringFormat=N0}" />
+                <TextBlock Margin="16,0,0,0" Foreground="#7A858F" Text="Over limit: " /><TextBlock Foreground="#7A858F" Text="{Binding FilesOverPageLimit, StringFormat=N0}" />
+                <TextBlock Margin="16,0,0,0" Foreground="#7A858F" Text="Errors: " /><TextBlock Foreground="#7A858F" Text="{Binding ErrorCount, StringFormat=N0}" />
+            </StackPanel>
+            <TextBlock Grid.Row="2"
+                       Margin="0,4,0,0"
+                       Foreground="#9A5C00"
+                       Text="{Binding DiscoveryWarningsText}"
+                       TextWrapping="Wrap"
+                       MaxHeight="40" />
+            <TextBlock Grid.Row="3"
+                       Margin="0,4,0,0"
+                       Foreground="#B3261E"
+                       Text="{Binding ErrorMessage}"
+                       TextWrapping="Wrap" />
+
+            <Border x:Name="ToastNotification"
+                    Grid.RowSpan="4"
+                    Panel.ZIndex="20"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Padding="13,8"
+                    Background="#26343E"
+                    CornerRadius="5"
+                    Visibility="Collapsed">
+                <TextBlock x:Name="ToastNotificationText"
+                           Foreground="White"
+                           FontWeight="SemiBold" />
+            </Border>
+        </Grid>
+        </Grid>
+    </DockPanel>
+</Window>

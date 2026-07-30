@@ -1,0 +1,135 @@
+<Window x:Class="ArchiveAssist.App.OcrWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Create Searchable PDF Copies - Archive Assist"
+        Width="980" Height="760" MinWidth="820" MinHeight="660"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock FontSize="24" FontWeight="SemiBold" Text="Create Searchable PDF Copies" />
+            <TextBlock Margin="0,5,0,0" Foreground="#5D6873" TextWrapping="Wrap"
+                       Text="OCR selected Report PDFs into a separate folder. Source PDFs are read-only and are never overwritten." />
+        </StackPanel>
+
+        <Border Grid.Row="1" Margin="0,16,0,0" Padding="12" Background="#F3F6F8" BorderBrush="#D8DEE4" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontWeight="SemiBold" Text="OCR Setup Check" />
+                    <TextBlock Margin="0,3,12,6" Foreground="#5D6873" TextWrapping="Wrap" Text="{Binding SetupInstructions}" />
+                    <ItemsControl ItemsSource="{Binding Dependencies}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,8,0" Padding="8,4" Background="White" BorderBrush="#C9D1D9" BorderThickness="1"
+                                        ToolTip="{Binding Details}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                                        <TextBlock Margin="6,0,0,0" Text="{Binding StatusLabel}" />
+                                        <TextBlock Margin="5,0,0,0" Foreground="#6B7680" Text="{Binding Version}" TextTrimming="CharacterEllipsis" MaxWidth="180" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+                <Button Grid.Column="1" VerticalAlignment="Top" Padding="13,6" Content="Recheck setup"
+                        Command="{Binding CheckSetupCommand}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Output folder:" />
+            <TextBox Grid.Column="1" Margin="10,0" Padding="8,6" IsReadOnly="True"
+                     Text="{Binding OutputFolder, Mode=OneWay}" />
+            <Button Grid.Column="2" Padding="13,6" Content="Select folder..." Click="SelectOutputFolder_Click"
+                    IsEnabled="{Binding CanSelectOutputFolder}" />
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="310" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Pages to OCR:" />
+            <ComboBox Grid.Column="1" Margin="10,0" Padding="7,5"
+                      ItemsSource="{Binding PageModes}" SelectedItem="{Binding SelectedPageMode}"
+                      DisplayMemberPath="Name" IsEnabled="{Binding CanSelectOutputFolder}" />
+            <TextBlock Grid.Column="2" VerticalAlignment="Center" Foreground="#5D6873" TextWrapping="Wrap"
+                       Text="{Binding PageModeDescription}" />
+        </Grid>
+
+        <TabControl Grid.Row="4" Margin="0,14,0,0">
+            <TabItem Header="Queue">
+                <DataGrid ItemsSource="{Binding Queue}" AutoGenerateColumns="False" IsReadOnly="True"
+                          CanUserAddRows="False" GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="File Name" Binding="{Binding FileName}" Width="230" />
+                        <DataGridTextColumn Header="Source Folder" Binding="{Binding RelativeFolder}" Width="180" />
+                        <DataGridTextColumn Header="Non-OCR Pages" Binding="{Binding NonOcrPages}" Width="120" />
+                        <DataGridTextColumn Header="Planned Output" Binding="{Binding OutputPath}" Width="*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="Results">
+                <DataGrid ItemsSource="{Binding Results}" AutoGenerateColumns="False" IsReadOnly="True"
+                          CanUserAddRows="False" GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="File Name" Binding="{Binding FileName}" Width="210" />
+                        <DataGridTextColumn Header="Status" Binding="{Binding StateLabel}" Width="155" />
+                        <DataGridTextColumn Header="Pages" Binding="{Binding PageCount}" Width="65" />
+                        <DataGridTextColumn Header="With Text" Binding="{Binding PagesWithText}" Width="85" />
+                        <DataGridTextColumn Header="Without Text" Binding="{Binding PagesWithoutText}" Width="95" />
+                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
+
+        <Grid Grid.Row="5" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <ProgressBar Height="10" Minimum="0" Maximum="100"
+                             Value="{Binding ProgressPercent, Mode=OneWay}" />
+                <StackPanel Margin="0,6,0,0" Orientation="Horizontal">
+                    <TextBlock Foreground="#5D6873" Text="{Binding CurrentStage}" />
+                    <TextBlock Margin="8,0,0,0" Foreground="#5D6873" FontWeight="SemiBold" Text="{Binding CurrentFileName}" />
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="16,0,0,0" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button MinWidth="95" Padding="13,7" Content="Cancel" Command="{Binding CancelCommand}" />
+                <Button MinWidth="165" Margin="8,0,0,0" Padding="13,7" Content="Create searchable copies"
+                        Command="{Binding StartOcrCommand}" IsDefault="True" />
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="6" Margin="0,10,0,0">
+            <TextBlock Foreground="#B42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
+            <TextBlock Margin="0,3,0,0" Foreground="#5D6873" TextTrimming="CharacterEllipsis" Text="{Binding StatusText}" />
+        </StackPanel>
+    </Grid>
+</Window>
